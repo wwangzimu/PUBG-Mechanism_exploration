@@ -3,57 +3,35 @@ from  header import header,json,requests,os
 import xlwt
 #本文件用来获取组队形式的玩家数据
 #传入参数依次为玩家ID列表，被搜索的玩家，最近14天所玩比赛数量，组队模式
-def Team_of_AllPlayer(PlayerIDs=[],Player_Win_Places=[],player_name='',count_match=int,Player_Model=int,):
+def Team_of_AllPlayer(PlayerID=[],Count_Of_Team=[],count_match=int,Player_Model=int,):
     AllMatches=[]
     Player_IDs = []
     # 本赛季中的最新分段、平均击杀、和平均伤害,带复数的是全部场次数据
     Average_Rank = []#存储每局游戏每位玩家的分段
     Average_Kill = []#存储每局游戏每位玩家的击杀
     Average_Damage = []#存储每局游戏每位玩家的场伤
-
     Average_Damages_of_Team=[]#存储每局游戏每一队的平均场伤
-    WinPlacesTeamCount=[]#存储每队玩家数量
-    WinPlacesTeam_ID=[]#每局游戏玩家按组分类的ID
-    WinPlacesTeam_ID_places=[]#每局玩家的游戏排名，统计队伍平均场伤专用，按照1-N排列，且同一个小队排名一致，如第一名4位，第二名3位，则数组为1、1、1、1、2、2、2
-    WinPlacesTeam_ID_place=[]#去重的队伍顺序排名，因为PUBG官方API的一个队伍数量可能不止4个人
+
+
     print("以分组形式处理全部玩家赛季数据")
     # 需要对玩家名称数组进行分组，决定进行循环几次，并且最后一次循环的数值可能不够10个
     #四排每次仅请求2队玩家，如果是双排每次请求5队玩家
     #通过循环找这次比赛有多少支队伍，即WinPlace最大的
-    if Player_Model == 1 or Player_Model ==2:
-        TeamCount=40#四排队伍数量最多40
-    else:
-        TeamCount=70#双排队伍数量最多70
-
-
-    # 将玩家ID分组，四排4人一组，双排2人一组
-    for j in range(1, TeamCount):#队伍数量不止24
-        count=0
-        for l in range(len(Player_Win_Places)):
-            if Player_Win_Places[l] == j:
-                count+=1
-                WinPlacesTeam_ID.append(PlayerIDs[l])
-                #详细的队伍顺序排名
-                WinPlacesTeam_ID_places.append(j)
-        if count !=0:
-            #队伍数量可能为0
-            WinPlacesTeamCount.append(count)
-            # 去重的队伍顺序排名，因为PUBG官方API的一个队伍数量可能不止4个人
-            WinPlacesTeam_ID_place.append(j)
-        print(WinPlacesTeamCount)  # 此处应该是已经将玩家以小队的形式分组
-    print('队伍数量为：'+str(len(WinPlacesTeamCount)))
+    #队伍数量
+    TeamCount=len(Count_Of_Team)
+    print('队伍数量为：'+str(TeamCount))
     # 需要拆分的行数为temp行,分奇偶
-    if len(WinPlacesTeam_ID) %10 ==0:
-        temp = int(len(WinPlacesTeam_ID) / 10)
+    if len(PlayerID) %10 ==0:
+        temp = int(len(PlayerID) / 10)
     else:
-        temp = int(len(WinPlacesTeam_ID) / 10) + 1
+        temp = int(len(PlayerID) / 10) + 1
     for i in range(temp):
         temp_player = []
         for j in range(10):
             # 如果还在玩家列表内
-            if ((i * 10 + j) < len(WinPlacesTeam_ID)):
-                # 先将每行j列数组添加到一个列表中，再把该列表添加到最终的Plyer_Names集合，使得Plyer_Names最终为temp行玩家，每行最大10个玩家的表现形式
-                temp_player.append(WinPlacesTeam_ID[i * 10 + j])
+            if ((i * 10 + j) < len(PlayerID)):
+                # 先将每行j列数组添加到一个列表中，再把该列表添加到最终的Player_IDs集合，使得Player_IDs最终为temp行玩家，每行最大10个玩家的表现形式
+                temp_player.append(PlayerID[i * 10 + j])
 
         Player_IDs.append(temp_player)
     # 循环的次数有Pleyer_Names有多少行决定
@@ -80,7 +58,6 @@ def Team_of_AllPlayer(PlayerIDs=[],Player_Win_Places=[],player_name='',count_mat
         # 获取玩家Matche数据
         # PlayersSeasonurl = 'https://api.pubg.com/shards/steam/seasons/division.bro.official.pc-2018-06/gameMode/squad/players?filter[playerIds]=account.b38fc473d39549d0b454f3c30efcd791'
         PlayersSeason = requests.get(PlayersSeasonurl, headers=header)
-
         PlayersSeason_requestCode = PlayersSeason.status_code
         if (PlayersSeason_requestCode == 429):
             print("请求太快，请联系作者，或者1min后再尝试")
@@ -141,18 +118,24 @@ def Team_of_AllPlayer(PlayerIDs=[],Player_Win_Places=[],player_name='',count_mat
             AllMatches.append(All_Matches)
 
         time.sleep(10)
+    temp=0
 
    #已经获取到一场比赛内所有玩家的场伤，则根据小队的数量进行获取队伍平均场伤
-    for i in range(1,len(WinPlacesTeam_ID_place)+1):#表示1...N小队循环
-        #存储一个队伍内的平均场伤，每一队进行对比前均清零
+    for i in range(0,TeamCount):#表示1...N小队循环
         Temp_Damage=0
-        for j in range(len(WinPlacesTeam_ID)):
-            #将数组WinPlacesTeam_ID_place数值相同下标的玩家的场伤进行统计
-            if WinPlacesTeam_ID_places[j] == WinPlacesTeam_ID_place[i-1]:
-                Temp_Damage+=Average_Damage[j]
+        UpTeamcout = 0
+        # 前面N-1队玩家数量之和
+        for j in range(Count_Of_Team[i]):
+             Temp_Damage+=Average_Damage[temp+j]
+        temp+=Count_Of_Team[i]
         #由于每队玩家的数量已经存储在WinPlacesTeamCount中，因此直接使用该数组中的值计算小队的平均场伤
-        Temp_Damage=int(Temp_Damage/WinPlacesTeamCount[i-1])#注意数组下标对齐
-        Average_Damages_of_Team.append(Temp_Damage)
+
+        if Temp_Damage != 0 :
+            Averge_Temp_Damage = int(Temp_Damage / Count_Of_Team[i])  # 注意数组下标对齐
+            Average_Damages_of_Team.append(Averge_Temp_Damage)
+        else:
+
+            Average_Damages_of_Team.append(0)
 
 
     # 该场比赛内玩家
@@ -160,32 +143,5 @@ def Team_of_AllPlayer(PlayerIDs=[],Player_Win_Places=[],player_name='',count_mat
     print(Average_Rank)
     print(Average_Damage)
     return Average_Rank,Average_Damage,Average_Kill,Average_Damages_of_Team,AllMatches
-    # 对数据进行排序后再写入
-    # Average_Ranks.append(Average_Rank)
-    # Average_Damages.append(Average_Damage)
-    # Average_Kills.append(Average_Kill)
-    # # 第一次打开会清空原来的
-    # if count_match == 1:
-    #     f1 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Ranks.txt', 'w+', encoding="utf-8")
-    #     f2 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Kills.txt', 'w+', encoding="utf-8")
-    #     f3 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Damages.txt', 'w+', encoding="utf-8")
-    #     f4=open(os.getcwd() + '/玩家/' + str(player_name) + '的AllMatches.txt', 'w+', encoding="utf-8")
-    # else:
-    #     f1 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Ranks.txt', 'a+', encoding="utf-8")
-    #     f2 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Kills.txt', 'a+', encoding="utf-8")
-    #     f3 = open(os.getcwd() + '/玩家/' + str(player_name) + '的Average_Damages.txt', 'a+', encoding="utf-8")
-    #     f4 = open(os.getcwd() + '/玩家/' + str(player_name) + '的AllMatches.txt', 'a+', encoding="utf-8")
-    # print(Average_Ranks, file=f1)
-    # print("写入分段成功")
-    # print(Average_Kills, file=f2)
-    # print("写入KD成功")
-    # print(Average_Damages, file=f3)
-    # print("写入场伤成功")
-    # print(AllMatches, file=f4)
-    # print("写入AllMatches成功")
-    # f1.close()
-    # f2.close()
-    # f3.close()
-    # f4.close()
 
 
